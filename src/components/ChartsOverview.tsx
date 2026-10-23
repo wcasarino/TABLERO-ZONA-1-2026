@@ -21,7 +21,7 @@ import { startOfWeek, format, parseISO } from "date-fns";
 import { cn } from "../lib/utils";
 import DownloadPdfButton from "./DownloadPdfButton";
 import DownloadExcelButton from "./DownloadExcelButton";
-import TurnosMensualesPorCapsTable from "./TurnosMensualesPorCapsTable";
+import TurnosMensualesTable from "./TurnosMensualesTable";
 
 const COLORS = [
   "#3b82f6", // Azul
@@ -559,13 +559,42 @@ export default function ChartsOverview({
         isPrinting && "h-auto overflow-visible",
       )}
     >
-      {/* Turnos MENSUALES por CAPS (Solo en Atenciones) */}
+      {/* Tablas de Turnos MENSUALES (Solo en Atenciones) */}
       {activeTab === 'AMBULATORIO' && (
-        <TurnosMensualesPorCapsTable
-          data={data}
-          isPrinting={isPrinting}
-          setFilters={setFilters}
-        />
+        <>
+          <TurnosMensualesTable
+            data={data}
+            dimensionKey="caps"
+            title="Turnos MENSUALES por CAPS"
+            col1Label="CAPS"
+            isPrinting={isPrinting}
+            setFilters={setFilters}
+          />
+          <TurnosMensualesTable
+            data={data}
+            dimensionKey="dpto"
+            title="Turnos MENSUALES por DPTO"
+            col1Label="DPTO"
+            isPrinting={isPrinting}
+            setFilters={setFilters}
+          />
+          <TurnosMensualesTable
+            data={data}
+            dimensionKey="especialidad"
+            title="Turnos MENSUALES por ESPECIALIDAD"
+            col1Label="ESPECIALIDAD"
+            isPrinting={isPrinting}
+            setFilters={setFilters}
+          />
+          <TurnosMensualesTable
+            data={data}
+            dimensionKey="profesional"
+            title="Turnos MENSUALES por PROFESIONAL"
+            col1Label="PROFESIONAL"
+            isPrinting={isPrinting}
+            setFilters={setFilters}
+          />
+        </>
       )}
 
       {/* Turnos por día / Atenciones por Día o Semana (Full Width) */}
