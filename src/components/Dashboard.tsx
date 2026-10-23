@@ -6,6 +6,7 @@ import LeftCharts from './LeftCharts';
 import ChartsOverview from './ChartsOverview';
 import DataTables from './DataTables';
 import ProductividadTable from './ProductividadTable';
+import GuardiasMensualesPorCapsTable from './GuardiasMensualesPorCapsTable';
 import { cn } from '../lib/utils';
 
 interface Props {
@@ -48,6 +49,13 @@ export default function Dashboard({
 
       {/* Tabla Productividad por Profesional ocupando el ancho de la pantalla debajo de KPIs */}
       <section className="shrink-0 bg-slate-100 px-2 pb-2">
+        {activeTab === 'GUARDIA' && (
+          <GuardiasMensualesPorCapsTable 
+            data={data}
+            isPrinting={isPrinting}
+            setFilters={setFilters}
+          />
+        )}
         <ProductividadTable 
           data={data}
           profesionales={profesionales}
