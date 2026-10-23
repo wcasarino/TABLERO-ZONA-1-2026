@@ -21,6 +21,7 @@ import { startOfWeek, format, parseISO } from "date-fns";
 import { cn } from "../lib/utils";
 import DownloadPdfButton from "./DownloadPdfButton";
 import DownloadExcelButton from "./DownloadExcelButton";
+import TurnosMensualesPorCapsTable from "./TurnosMensualesPorCapsTable";
 
 const COLORS = [
   "#3b82f6", // Azul
@@ -558,6 +559,15 @@ export default function ChartsOverview({
         isPrinting && "h-auto overflow-visible",
       )}
     >
+      {/* Turnos MENSUALES por CAPS (Solo en Atenciones) */}
+      {activeTab === 'AMBULATORIO' && (
+        <TurnosMensualesPorCapsTable
+          data={data}
+          isPrinting={isPrinting}
+          setFilters={setFilters}
+        />
+      )}
+
       {/* Turnos por día / Atenciones por Día o Semana (Full Width) */}
       <ChartCard
         title={
