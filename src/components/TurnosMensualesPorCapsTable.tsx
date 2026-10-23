@@ -13,7 +13,10 @@ interface Props {
 
 interface MonthMetrics {
   count: number;
+  sinTurno: number;
   conTurno: number;
+  pctSinTurno: string;
+  pctConTurno: string;
   bot: number;
   call: number;
   caps: number;
@@ -25,7 +28,10 @@ interface MonthMetrics {
 interface CapsMonthlyRow {
   name: string;
   totalCount: number;
+  totalSinTurno: number;
   totalConTurno: number;
+  totalPctSinTurno: string;
+  totalPctConTurno: string;
   totalBot: number;
   totalCall: number;
   totalCaps: number;
@@ -64,18 +70,20 @@ export default function TurnosMensualesPorCapsTable({
     const capsMap = new Map<string, {
       name: string;
       totalCount: number;
+      totalSinTurno: number;
       totalConTurno: number;
       totalBot: number;
       totalCall: number;
-      byMonth: Record<string, { count: number; conTurno: number; bot: number; call: number }>;
+      byMonth: Record<string, { count: number; sinTurno: number; conTurno: number; bot: number; call: number }>;
     }>();
 
     // Estructura para totales generales y por mes
-    const monthTotalsAccum: Record<string, { count: number; conTurno: number; bot: number; call: number }> = {};
+    const monthTotalsAccum: Record<string, { count: number; sinTurno: number; conTurno: number; bot: number; call: number }> = {};
     months.forEach(m => {
-      monthTotalsAccum[m] = { count: 0, conTurno: 0, bot: 0, call: 0 };
+      monthTotalsAccum[m] = { count: 0, sinTurno: 0, conTurno: 0, bot: 0, call: 0 };
     });
     let grandTotalCount = 0;
+    let grandTotalSinTurno = 0;
     let grandTotalConTurno = 0;
     let grandTotalBot = 0;
     let grandTotalCall = 0;
@@ -86,13 +94,14 @@ export default function TurnosMensualesPorCapsTable({
       if (!m || !monthTotalsAccum[m]) return;
 
       if (!capsMap.has(caps)) {
-        const initialByMonth: Record<string, { count: number; conTurno: number; bot: number; call: number }> = {};
+        const initialByMonth: Record<string, { count: number; sinTurno: number; conTurno: number; bot: number; call: number }> = {};
         months.forEach(mo => {
-          initialByMonth[mo] = { count: 0, conTurno: 0, bot: 0, call: 0 };
+          initialByMonth[mo] = { count: 0, sinTurno: 0, conTurno: 0, bot: 0, call: 0 };
         });
         capsMap.set(caps, {
           name: caps,
           totalCount: 0,
+          totalSinTurno: 0,
           totalConTurno: 0,
           totalBot: 0,
           totalCall: 0,
@@ -123,6 +132,20 @@ export default function TurnosMensualesPorCapsTable({
       monthTotalsAccum[m].conTurno += conTurno;
       grandTotalConTurno += conTurno;
 
+      // Sin Turno
+      let sinTurno = 0;
+      if (d.sinTurno !== undefined && d.sinTurno !== null && !isNaN(Number(d.sinTurno)) && String(d.sinTurno).trim() !== '') {
+        sinTurno = Number(d.sinTurno) || 0;
+      } else if (String(d.tipo || '').toUpperCase().includes('SIN TURNO')) {
+        sinTurno = atenciones;
+      } else {
+        sinTurno = Math.max(0, atenciones - conTurno);
+      }
+      entry.totalSinTurno += sinTurno;
+      entry.byMonth[m].sinTurno += sinTurno;
+      monthTotalsAccum[m].sinTurno += sinTurno;
+      grandTotalSinTurno += sinTurno;
+
       // BOT
       let bot = 0;
       if (d.canalBot !== undefined && d.canalBot !== null && !isNaN(Number(d.canalBot)) && String(d.canalBot).trim() !== '') {
@@ -150,17 +173,22 @@ export default function TurnosMensualesPorCapsTable({
 
     const calculatedRows: CapsMonthlyRow[] = Array.from(capsMap.values()).map(entry => {
       const totalCaps = Math.max(0, entry.totalConTurno - entry.totalBot - entry.totalCall);
+      const totalPctSinTurno = entry.totalCount > 0 ? Math.round((entry.totalSinTurno / entry.totalCount) * 100) + '%' : '0%';
+      const totalPctConTurno = entry.totalCount > 0 ? Math.round((entry.totalConTurno / entry.totalCount) * 100) + '%' : '0%';
       const totalPctCaps = entry.totalConTurno > 0 ? Math.round((totalCaps / entry.totalConTurno) * 100) + '%' : '0%';
       const totalPctBot = entry.totalConTurno > 0 ? Math.round((entry.totalBot / entry.totalConTurno) * 100) + '%' : '0%';
       const totalPctCall = entry.totalConTurno > 0 ? Math.round((entry.totalCall / entry.totalConTurno) * 100) + '%' : '0%';
 
       const byMonthProcessed: Record<string, MonthMetrics> = {};
       months.forEach(m => {
-        const mData = entry.byMonth[m] || { count: 0, conTurno: 0, bot: 0, call: 0 };
+        const mData = entry.byMonth[m] || { count: 0, sinTurno: 0, conTurno: 0, bot: 0, call: 0 };
         const capsVal = Math.max(0, mData.conTurno - mData.bot - mData.call);
         byMonthProcessed[m] = {
           count: mData.count,
+          sinTurno: mData.sinTurno,
           conTurno: mData.conTurno,
+          pctSinTurno: mData.count > 0 ? Math.round((mData.sinTurno / mData.count) * 100) + '%' : '0%',
+          pctConTurno: mData.count > 0 ? Math.round((mData.conTurno / mData.count) * 100) + '%' : '0%',
           bot: mData.bot,
           call: mData.call,
           caps: capsVal,
@@ -173,7 +201,10 @@ export default function TurnosMensualesPorCapsTable({
       return {
         name: entry.name,
         totalCount: entry.totalCount,
+        totalSinTurno: entry.totalSinTurno,
         totalConTurno: entry.totalConTurno,
+        totalPctSinTurno,
+        totalPctConTurno,
         totalBot: entry.totalBot,
         totalCall: entry.totalCall,
         totalCaps,
@@ -187,7 +218,7 @@ export default function TurnosMensualesPorCapsTable({
     // Ordenar de mayor a menor por cantidad total
     calculatedRows.sort((a, b) => b.totalCount - a.totalCount);
 
-    // Totales procesados
+    // Totales generales
     const grandTotalCaps = Math.max(0, grandTotalConTurno - grandTotalBot - grandTotalCall);
     const byMonthTotalsProcessed: Record<string, MonthMetrics> = {};
     months.forEach(m => {
@@ -195,7 +226,10 @@ export default function TurnosMensualesPorCapsTable({
       const capsVal = Math.max(0, mData.conTurno - mData.bot - mData.call);
       byMonthTotalsProcessed[m] = {
         count: mData.count,
+        sinTurno: mData.sinTurno,
         conTurno: mData.conTurno,
+        pctSinTurno: mData.count > 0 ? Math.round((mData.sinTurno / mData.count) * 100) + '%' : '0%',
+        pctConTurno: mData.count > 0 ? Math.round((mData.conTurno / mData.count) * 100) + '%' : '0%',
         bot: mData.bot,
         call: mData.call,
         caps: capsVal,
@@ -207,7 +241,10 @@ export default function TurnosMensualesPorCapsTable({
 
     const calculatedTotals = {
       totalCount: grandTotalCount,
+      totalSinTurno: grandTotalSinTurno,
       totalConTurno: grandTotalConTurno,
+      totalPctSinTurno: grandTotalCount > 0 ? Math.round((grandTotalSinTurno / grandTotalCount) * 100) + '%' : '0%',
+      totalPctConTurno: grandTotalCount > 0 ? Math.round((grandTotalConTurno / grandTotalCount) * 100) + '%' : '0%',
       totalBot: grandTotalBot,
       totalCall: grandTotalCall,
       totalCaps: grandTotalCaps,
@@ -227,35 +264,43 @@ export default function TurnosMensualesPorCapsTable({
     return rows.filter(r => r.name.toLowerCase().includes(term));
   }, [rows, searchTerm]);
 
-  // Datos para exportar a Excel
+  // Datos para exportar a Excel (Orden exacto: Cant, Sin Turno, Con Turno, CAPS, BOT, CALL)
   const excelData = useMemo(() => {
     return filteredRows.map(r => {
       const obj: Record<string, any> = { CAPS: r.name };
       months.forEach(m => {
-        const mMetrics = r.byMonth[m];
+        const mm = r.byMonth[m];
         if (viewMode === 'pct') {
-          obj[`${m} - CAPS`] = mMetrics ? mMetrics.pctCaps : '0%';
-          obj[`${m} - BOT`] = mMetrics ? mMetrics.pctBot : '0%';
-          obj[`${m} - CALL`] = mMetrics ? mMetrics.pctCall : '0%';
-          obj[`${m} - Cant`] = mMetrics ? mMetrics.count : 0;
+          obj[`${m} - Cant`] = mm ? mm.count : 0;
+          obj[`${m} - Sin Turno`] = mm ? mm.pctSinTurno : '0%';
+          obj[`${m} - Con Turno`] = mm ? mm.pctConTurno : '0%';
+          obj[`${m} - CAPS`] = mm ? mm.pctCaps : '0%';
+          obj[`${m} - BOT`] = mm ? mm.pctBot : '0%';
+          obj[`${m} - CALL`] = mm ? mm.pctCall : '0%';
         } else {
-          obj[`${m} - CAPS (cant)`] = mMetrics ? mMetrics.caps : 0;
-          obj[`${m} - BOT (cant)`] = mMetrics ? mMetrics.bot : 0;
-          obj[`${m} - CALL (cant)`] = mMetrics ? mMetrics.call : 0;
-          obj[`${m} - Cant`] = mMetrics ? mMetrics.count : 0;
+          obj[`${m} - Cant`] = mm ? mm.count : 0;
+          obj[`${m} - Sin Turno (cant)`] = mm ? mm.sinTurno : 0;
+          obj[`${m} - Con Turno (cant)`] = mm ? mm.conTurno : 0;
+          obj[`${m} - CAPS (cant)`] = mm ? mm.caps : 0;
+          obj[`${m} - BOT (cant)`] = mm ? mm.bot : 0;
+          obj[`${m} - CALL (cant)`] = mm ? mm.call : 0;
         }
       });
       if (months.length > 1) {
         if (viewMode === 'pct') {
+          obj['Total - Cant'] = r.totalCount;
+          obj['Total - Sin Turno'] = r.totalPctSinTurno;
+          obj['Total - Con Turno'] = r.totalPctConTurno;
           obj['Total - CAPS'] = r.totalPctCaps;
           obj['Total - BOT'] = r.totalPctBot;
           obj['Total - CALL'] = r.totalPctCall;
-          obj['Total - Cant'] = r.totalCount;
         } else {
+          obj['Total - Cant'] = r.totalCount;
+          obj['Total - Sin Turno (cant)'] = r.totalSinTurno;
+          obj['Total - Con Turno (cant)'] = r.totalConTurno;
           obj['Total - CAPS (cant)'] = r.totalCaps;
           obj['Total - BOT (cant)'] = r.totalBot;
           obj['Total - CALL (cant)'] = r.totalCall;
-          obj['Total - Cant'] = r.totalCount;
         }
       }
       return obj;
@@ -294,20 +339,20 @@ export default function TurnosMensualesPorCapsTable({
             <button
               onClick={() => setViewMode('pct')}
               className={cn(
-                "px-2 py-0.5 rounded transition-all flex items-center gap-0.5",
+                "px-2 py-0.5 rounded transition-all flex items-center gap-0.5 cursor-pointer",
                 viewMode === 'pct' ? "bg-white text-blue-700 shadow-xs" : "text-slate-600 hover:text-slate-900"
               )}
-              title="Mostrar canales en porcentaje (% sobre Con Turno)"
+              title="Mostrar canales y tipos en porcentajes"
             >
               <Percent className="w-2.5 h-2.5" /> %
             </button>
             <button
               onClick={() => setViewMode('raw')}
               className={cn(
-                "px-2 py-0.5 rounded transition-all flex items-center gap-0.5",
+                "px-2 py-0.5 rounded transition-all flex items-center gap-0.5 cursor-pointer",
                 viewMode === 'raw' ? "bg-white text-blue-700 shadow-xs" : "text-slate-600 hover:text-slate-900"
               )}
-              title="Mostrar canales en cantidad absoluta"
+              title="Mostrar cantidades absolutas"
             >
               <Hash className="w-2.5 h-2.5" /> Cant
             </button>
@@ -355,61 +400,73 @@ export default function TurnosMensualesPorCapsTable({
             <tr className="border-b border-slate-300">
               <th
                 rowSpan={2}
-                className="px-2 py-1.5 font-bold text-slate-700 border-r border-slate-300 bg-slate-200 sticky left-0 z-20 min-w-[140px] uppercase tracking-wider"
+                className="px-2 py-1.5 font-bold text-slate-700 border-r border-slate-300 bg-slate-200 sticky left-0 z-20 min-w-[130px] uppercase tracking-wider text-[10px]"
               >
                 CAPS
               </th>
               {months.map(m => (
                 <th
                   key={m}
-                  colSpan={4}
-                  className="px-2 py-1 font-bold text-slate-800 text-center uppercase tracking-tight border-r border-slate-300 bg-slate-200/90 text-[10px]"
+                  colSpan={6}
+                  className="px-2 py-1 font-bold text-slate-800 text-center uppercase tracking-tight border-r border-slate-300 bg-slate-200/95 text-[10px]"
                 >
                   {m}
                 </th>
               ))}
               {months.length > 1 && (
                 <th
-                  colSpan={4}
-                  className="px-2 py-1 font-bold text-blue-900 text-center uppercase tracking-tight bg-blue-100/90 border-l border-blue-200 text-[10px]"
+                  colSpan={6}
+                  className="px-2 py-1 font-bold text-blue-900 text-center uppercase tracking-tight bg-blue-100/95 border-l border-blue-200 text-[10px]"
                 >
                   TOTAL ACUMULADO
                 </th>
               )}
             </tr>
 
-            {/* Encabezado Fila 2: Subcolumnas de Canales y Cant */}
+            {/* Encabezado Fila 2: Subcolumnas en el orden exacto solicitado: Cant, Sin Turno, Con Turno, CAPS, BOT, CALL */}
             <tr className="border-b border-slate-300 bg-slate-100 text-[9px]">
               {months.map(m => (
                 <React.Fragment key={`${m}-sub`}>
-                  <th className="px-1.5 py-1 font-bold text-indigo-700 text-right w-11" title="% CAPS sobre Con Turno">
+                  <th className="px-1.5 py-1 font-bold text-slate-800 text-right w-12" title="Cantidad total de atenciones del mes">
+                    Cant
+                  </th>
+                  <th className="px-1.5 py-1 font-bold text-amber-700 text-right w-12" title="Sin Turno">
+                    Sin Turno
+                  </th>
+                  <th className="px-1.5 py-1 font-bold text-emerald-700 text-right w-12" title="Con Turno">
+                    Con Turno
+                  </th>
+                  <th className="px-1.5 py-1 font-bold text-indigo-700 text-right w-11" title="Canal CAPS (% sobre Con Turno)">
                     CAPS
                   </th>
-                  <th className="px-1.5 py-1 font-bold text-blue-700 text-right w-11" title="% BOT sobre Con Turno">
+                  <th className="px-1.5 py-1 font-bold text-blue-700 text-right w-11" title="Canal BOT (% sobre Con Turno)">
                     BOT
                   </th>
-                  <th className="px-1.5 py-1 font-bold text-purple-700 text-right w-11" title="% CALL sobre Con Turno">
+                  <th className="px-1.5 py-1 font-bold text-purple-700 text-right border-r border-slate-300 w-11" title="Canal CALL (% sobre Con Turno)">
                     CALL
-                  </th>
-                  <th className="px-1.5 py-1 font-bold text-slate-800 text-right border-r border-slate-300 w-12" title="Total atenciones del mes">
-                    Cant
                   </th>
                 </React.Fragment>
               ))}
 
               {months.length > 1 && (
                 <>
-                  <th className="px-1.5 py-1 font-bold text-indigo-800 text-right bg-blue-50/80 w-11" title="% CAPS total">
-                    CAPS
-                  </th>
-                  <th className="px-1.5 py-1 font-bold text-blue-800 text-right bg-blue-50/80 w-11" title="% BOT total">
-                    BOT
-                  </th>
-                  <th className="px-1.5 py-1 font-bold text-purple-800 text-right bg-blue-50/80 w-11" title="% CALL total">
-                    CALL
-                  </th>
                   <th className="px-1.5 py-1 font-bold text-slate-900 text-right bg-blue-50/80 w-12" title="Total general de atenciones">
                     Cant
+                  </th>
+                  <th className="px-1.5 py-1 font-bold text-amber-800 text-right bg-blue-50/80 w-12" title="Total Sin Turno">
+                    Sin Turno
+                  </th>
+                  <th className="px-1.5 py-1 font-bold text-emerald-800 text-right bg-blue-50/80 w-12" title="Total Con Turno">
+                    Con Turno
+                  </th>
+                  <th className="px-1.5 py-1 font-bold text-indigo-800 text-right bg-blue-50/80 w-11" title="Canal CAPS total">
+                    CAPS
+                  </th>
+                  <th className="px-1.5 py-1 font-bold text-blue-800 text-right bg-blue-50/80 w-11" title="Canal BOT total">
+                    BOT
+                  </th>
+                  <th className="px-1.5 py-1 font-bold text-purple-800 text-right bg-blue-50/80 w-11" title="Canal CALL total">
+                    CALL
                   </th>
                 </>
               )}
@@ -430,7 +487,7 @@ export default function TurnosMensualesPorCapsTable({
                 <td
                   className={cn(
                     "px-2 py-1 text-slate-800 font-medium border-r border-slate-200 sticky left-0 bg-inherit z-10",
-                    isPrinting ? "whitespace-normal break-words" : "truncate max-w-[160px]",
+                    isPrinting ? "whitespace-normal break-words" : "truncate max-w-[150px]",
                     setFilters && "cursor-pointer hover:text-blue-600 hover:font-bold"
                   )}
                   onDoubleClick={() => setFilters?.(prev => ({ ...prev, caps: [row.name] }))}
@@ -439,60 +496,122 @@ export default function TurnosMensualesPorCapsTable({
                   {row.name}
                 </td>
 
-                {/* Columnas por Mes */}
+                {/* Columnas por Mes en el orden solicitado: Cant, Sin Turno, Con Turno, CAPS, BOT, CALL */}
                 {months.map(m => {
-                  const mm = row.byMonth[m] || { count: 0, conTurno: 0, bot: 0, call: 0, caps: 0, pctCaps: '0%', pctBot: '0%', pctCall: '0%' };
+                  const mm = row.byMonth[m] || { 
+                    count: 0, 
+                    sinTurno: 0, 
+                    conTurno: 0, 
+                    pctSinTurno: '0%', 
+                    pctConTurno: '0%', 
+                    bot: 0, 
+                    call: 0, 
+                    caps: 0, 
+                    pctCaps: '0%', 
+                    pctBot: '0%', 
+                    pctCall: '0%' 
+                  };
                   const hasData = mm.count > 0;
                   return (
                     <React.Fragment key={`${row.name}-${m}`}>
-                      <td
-                        className={cn(
-                          "px-1.5 py-1 text-right font-mono font-medium",
-                          hasData ? "text-indigo-700" : "text-slate-300"
-                        )}
-                        title={`CAPS: ${mm.caps} de ${mm.conTurno} con turno`}
-                      >
-                        {hasData ? (viewMode === 'pct' ? mm.pctCaps : mm.caps) : '-'}
-                      </td>
-                      <td
-                        className={cn(
-                          "px-1.5 py-1 text-right font-mono font-medium",
-                          hasData ? "text-blue-700" : "text-slate-300"
-                        )}
-                        title={`BOT: ${mm.bot} de ${mm.conTurno} con turno`}
-                      >
-                        {hasData ? (viewMode === 'pct' ? mm.pctBot : mm.bot) : '-'}
-                      </td>
-                      <td
-                        className={cn(
-                          "px-1.5 py-1 text-right font-mono font-medium",
-                          hasData ? "text-purple-700" : "text-slate-300"
-                        )}
-                        title={`CALL: ${mm.call} de ${mm.conTurno} con turno`}
-                      >
-                        {hasData ? (viewMode === 'pct' ? mm.pctCall : mm.call) : '-'}
-                      </td>
-                      <td className="px-1.5 py-1 text-right font-mono font-bold text-slate-800 border-r border-slate-200">
+                      {/* 1. Cant */}
+                      <td className="px-1.5 py-1 text-right font-mono font-bold text-slate-800">
                         {mm.count.toLocaleString('es-AR')}
+                      </td>
+
+                      {/* 2. Sin Turno */}
+                      <td
+                        className={cn(
+                          "px-1.5 py-1 text-right font-mono font-medium",
+                          hasData && mm.sinTurno > 0 ? "text-amber-700" : "text-slate-300"
+                        )}
+                        title={`Sin Turno: ${mm.sinTurno.toLocaleString('es-AR')} (${mm.pctSinTurno} sobre total)`}
+                      >
+                        {hasData ? (viewMode === 'pct' ? mm.pctSinTurno : mm.sinTurno.toLocaleString('es-AR')) : '-'}
+                      </td>
+
+                      {/* 3. Con Turno */}
+                      <td
+                        className={cn(
+                          "px-1.5 py-1 text-right font-mono font-medium",
+                          hasData && mm.conTurno > 0 ? "text-emerald-700" : "text-slate-300"
+                        )}
+                        title={`Con Turno: ${mm.conTurno.toLocaleString('es-AR')} (${mm.pctConTurno} sobre total)`}
+                      >
+                        {hasData ? (viewMode === 'pct' ? mm.pctConTurno : mm.conTurno.toLocaleString('es-AR')) : '-'}
+                      </td>
+
+                      {/* 4. CAPS */}
+                      <td
+                        className={cn(
+                          "px-1.5 py-1 text-right font-mono font-medium",
+                          hasData && mm.conTurno > 0 ? "text-indigo-700" : "text-slate-300"
+                        )}
+                        title={`Canal CAPS: ${mm.caps.toLocaleString('es-AR')} de ${mm.conTurno.toLocaleString('es-AR')} con turno`}
+                      >
+                        {hasData && mm.conTurno > 0 ? (viewMode === 'pct' ? mm.pctCaps : mm.caps.toLocaleString('es-AR')) : '-'}
+                      </td>
+
+                      {/* 5. BOT */}
+                      <td
+                        className={cn(
+                          "px-1.5 py-1 text-right font-mono font-medium",
+                          hasData && mm.conTurno > 0 ? "text-blue-700" : "text-slate-300"
+                        )}
+                        title={`Canal BOT: ${mm.bot.toLocaleString('es-AR')} de ${mm.conTurno.toLocaleString('es-AR')} con turno`}
+                      >
+                        {hasData && mm.conTurno > 0 ? (viewMode === 'pct' ? mm.pctBot : mm.bot.toLocaleString('es-AR')) : '-'}
+                      </td>
+
+                      {/* 6. CALL */}
+                      <td
+                        className={cn(
+                          "px-1.5 py-1 text-right font-mono font-medium border-r border-slate-200",
+                          hasData && mm.conTurno > 0 ? "text-purple-700" : "text-slate-300"
+                        )}
+                        title={`Canal CALL: ${mm.call.toLocaleString('es-AR')} de ${mm.conTurno.toLocaleString('es-AR')} con turno`}
+                      >
+                        {hasData && mm.conTurno > 0 ? (viewMode === 'pct' ? mm.pctCall : mm.call.toLocaleString('es-AR')) : '-'}
                       </td>
                     </React.Fragment>
                   );
                 })}
 
-                {/* Columnas de Total Acumulado */}
+                {/* Columnas de Total Acumulado: Cant, Sin Turno, Con Turno, CAPS, BOT, CALL */}
                 {months.length > 1 && (
                   <>
-                    <td className="px-1.5 py-1 text-right font-mono font-bold text-indigo-800 bg-blue-50/30">
-                      {viewMode === 'pct' ? row.totalPctCaps : row.totalCaps}
-                    </td>
-                    <td className="px-1.5 py-1 text-right font-mono font-bold text-blue-800 bg-blue-50/30">
-                      {viewMode === 'pct' ? row.totalPctBot : row.totalBot}
-                    </td>
-                    <td className="px-1.5 py-1 text-right font-mono font-bold text-purple-800 bg-blue-50/30">
-                      {viewMode === 'pct' ? row.totalPctCall : row.totalCall}
-                    </td>
                     <td className="px-1.5 py-1 text-right font-mono font-bold text-slate-900 bg-blue-50/50">
                       {row.totalCount.toLocaleString('es-AR')}
+                    </td>
+                    <td 
+                      className="px-1.5 py-1 text-right font-mono font-semibold text-amber-800 bg-blue-50/30"
+                      title={`Total Sin Turno: ${row.totalSinTurno.toLocaleString('es-AR')} (${row.totalPctSinTurno})`}
+                    >
+                      {viewMode === 'pct' ? row.totalPctSinTurno : row.totalSinTurno.toLocaleString('es-AR')}
+                    </td>
+                    <td 
+                      className="px-1.5 py-1 text-right font-mono font-semibold text-emerald-800 bg-blue-50/30"
+                      title={`Total Con Turno: ${row.totalConTurno.toLocaleString('es-AR')} (${row.totalPctConTurno})`}
+                    >
+                      {viewMode === 'pct' ? row.totalPctConTurno : row.totalConTurno.toLocaleString('es-AR')}
+                    </td>
+                    <td 
+                      className="px-1.5 py-1 text-right font-mono font-semibold text-indigo-800 bg-blue-50/30"
+                      title={`Total Canal CAPS: ${row.totalCaps.toLocaleString('es-AR')}`}
+                    >
+                      {viewMode === 'pct' ? row.totalPctCaps : row.totalCaps.toLocaleString('es-AR')}
+                    </td>
+                    <td 
+                      className="px-1.5 py-1 text-right font-mono font-semibold text-blue-800 bg-blue-50/30"
+                      title={`Total Canal BOT: ${row.totalBot.toLocaleString('es-AR')}`}
+                    >
+                      {viewMode === 'pct' ? row.totalPctBot : row.totalBot.toLocaleString('es-AR')}
+                    </td>
+                    <td 
+                      className="px-1.5 py-1 text-right font-mono font-semibold text-purple-800 bg-blue-50/30"
+                      title={`Total Canal CALL: ${row.totalCall.toLocaleString('es-AR')}`}
+                    >
+                      {viewMode === 'pct' ? row.totalPctCall : row.totalCall.toLocaleString('es-AR')}
                     </td>
                   </>
                 )}
@@ -511,34 +630,53 @@ export default function TurnosMensualesPorCapsTable({
                   const tm = totals.byMonth[m];
                   return (
                     <React.Fragment key={`tot-${m}`}>
-                      <td className="px-1.5 py-1 text-right font-mono text-indigo-900" title="Promedio ponderado CAPS">
+                      {/* Cant */}
+                      <td className="px-1.5 py-1 text-right font-mono text-slate-900 font-extrabold">
+                        {tm.count.toLocaleString('es-AR')}
+                      </td>
+                      {/* Sin Turno */}
+                      <td className="px-1.5 py-1 text-right font-mono text-amber-900 font-bold" title="Sin Turno global del mes">
+                        {viewMode === 'pct' ? tm.pctSinTurno : tm.sinTurno.toLocaleString('es-AR')}
+                      </td>
+                      {/* Con Turno */}
+                      <td className="px-1.5 py-1 text-right font-mono text-emerald-900 font-bold" title="Con Turno global del mes">
+                        {viewMode === 'pct' ? tm.pctConTurno : tm.conTurno.toLocaleString('es-AR')}
+                      </td>
+                      {/* CAPS */}
+                      <td className="px-1.5 py-1 text-right font-mono text-indigo-900 font-bold" title="Canal CAPS global del mes">
                         {viewMode === 'pct' ? tm.pctCaps : tm.caps.toLocaleString('es-AR')}
                       </td>
-                      <td className="px-1.5 py-1 text-right font-mono text-blue-900" title="Promedio ponderado BOT">
+                      {/* BOT */}
+                      <td className="px-1.5 py-1 text-right font-mono text-blue-900 font-bold" title="Canal BOT global del mes">
                         {viewMode === 'pct' ? tm.pctBot : tm.bot.toLocaleString('es-AR')}
                       </td>
-                      <td className="px-1.5 py-1 text-right font-mono text-purple-900" title="Promedio ponderado CALL">
+                      {/* CALL */}
+                      <td className="px-1.5 py-1 text-right font-mono text-purple-900 font-bold border-r border-slate-300" title="Canal CALL global del mes">
                         {viewMode === 'pct' ? tm.pctCall : tm.call.toLocaleString('es-AR')}
-                      </td>
-                      <td className="px-1.5 py-1 text-right font-mono text-slate-900 font-bold border-r border-slate-300">
-                        {tm.count.toLocaleString('es-AR')}
                       </td>
                     </React.Fragment>
                   );
                 })}
+
                 {months.length > 1 && (
                   <>
-                    <td className="px-1.5 py-1 text-right font-mono text-indigo-950 bg-blue-100">
-                      {viewMode === 'pct' ? totals.totalPctCaps : totals.totalCaps.toLocaleString('es-AR')}
-                    </td>
-                    <td className="px-1.5 py-1 text-right font-mono text-blue-950 bg-blue-100">
-                      {viewMode === 'pct' ? totals.totalPctBot : totals.totalBot.toLocaleString('es-AR')}
-                    </td>
-                    <td className="px-1.5 py-1 text-right font-mono text-purple-950 bg-blue-100">
-                      {viewMode === 'pct' ? totals.totalPctCall : totals.totalCall.toLocaleString('es-AR')}
-                    </td>
                     <td className="px-1.5 py-1 text-right font-mono text-slate-950 font-extrabold bg-blue-100">
                       {totals.totalCount.toLocaleString('es-AR')}
+                    </td>
+                    <td className="px-1.5 py-1 text-right font-mono text-amber-950 font-bold bg-blue-100">
+                      {viewMode === 'pct' ? totals.totalPctSinTurno : totals.totalSinTurno.toLocaleString('es-AR')}
+                    </td>
+                    <td className="px-1.5 py-1 text-right font-mono text-emerald-950 font-bold bg-blue-100">
+                      {viewMode === 'pct' ? totals.totalPctConTurno : totals.totalConTurno.toLocaleString('es-AR')}
+                    </td>
+                    <td className="px-1.5 py-1 text-right font-mono text-indigo-950 font-bold bg-blue-100">
+                      {viewMode === 'pct' ? totals.totalPctCaps : totals.totalCaps.toLocaleString('es-AR')}
+                    </td>
+                    <td className="px-1.5 py-1 text-right font-mono text-blue-950 font-bold bg-blue-100">
+                      {viewMode === 'pct' ? totals.totalPctBot : totals.totalBot.toLocaleString('es-AR')}
+                    </td>
+                    <td className="px-1.5 py-1 text-right font-mono text-purple-950 font-bold bg-blue-100">
+                      {viewMode === 'pct' ? totals.totalPctCall : totals.totalCall.toLocaleString('es-AR')}
                     </td>
                   </>
                 )}
