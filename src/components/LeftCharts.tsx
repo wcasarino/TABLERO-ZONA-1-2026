@@ -209,9 +209,48 @@ export default function LeftCharts({
     return countByProperty(data, 'sexo');
   }, [data]);
 
-  const turnosPorProfesional = useMemo(() => {
-    if (activeTab !== 'AMBULATORIO' || !data) return [];
-    return countByProperty(data, 'profesional').slice(0, 7);
+  const top5Profesionales = useMemo(() => {
+    if (activeTab !== 'AMBULATORIO' || !data || data.length === 0) return [];
+
+    const map = new Map<string, { name: string; count: number; conTurno: number; sinTurno: number }>();
+
+    data.forEach(d => {
+      const rawName = d.profesional;
+      if (!rawName || typeof rawName !== 'string' || !rawName.trim()) return;
+      const name = rawName.trim();
+      const atenciones = Number(d.atenciones) || 0;
+
+      let conTurno = 0;
+      if (d.conTurno !== undefined && d.conTurno !== null && !isNaN(Number(d.conTurno)) && String(d.conTurno).trim() !== '') {
+        conTurno = Number(d.conTurno) || 0;
+      } else {
+        const tipoStr = String(d.tipo || '').toUpperCase();
+        if (tipoStr.includes('CON TURNO') || (!tipoStr.includes('SIN TURNO') && (tipoStr.includes('PROGRAM') || tipoStr.includes('SOBRE')))) {
+          conTurno = atenciones;
+        }
+      }
+
+      let sinTurno = 0;
+      if (d.sinTurno !== undefined && d.sinTurno !== null && !isNaN(Number(d.sinTurno)) && String(d.sinTurno).trim() !== '') {
+        sinTurno = Number(d.sinTurno) || 0;
+      } else if (String(d.tipo || '').toUpperCase().includes('SIN TURNO')) {
+        sinTurno = atenciones;
+      } else {
+        sinTurno = Math.max(0, atenciones - conTurno);
+      }
+
+      if (!map.has(name)) {
+        map.set(name, { name, count: 0, conTurno: 0, sinTurno: 0 });
+      }
+      const entry = map.get(name)!;
+      entry.count += atenciones;
+      entry.conTurno += conTurno;
+      entry.sinTurno += sinTurno;
+    });
+
+    return Array.from(map.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
   }, [data, activeTab]);
   
   const ambPorTipoAtencion = useMemo(() => {
@@ -499,28 +538,65 @@ export default function LeftCharts({
         </PrintOptimizedContainer>
       </ChartCard>
 
-      {/* Top 7: Turnos por Profesional */}
-      <ChartCard title="Top 7: Turnos por Profesional" isPrinting={isPrinting}>
-        <PrintOptimizedContainer height={200} isPrinting={isPrinting} width={370}>
-          <BarChart
-            data={turnosPorProfesional}
-            layout="vertical"
-            margin={{ top: 5, right: 10, left: 10, bottom: -5 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-            <XAxis type="number" tick={{ fontSize: 10 }} />
-            <YAxis 
-              dataKey="name" 
-              type="category" 
-              width={110} 
-              tick={{ fontSize: 9 }} 
-              tickFormatter={(val) => typeof val === 'string' && val.length > 20 ? val.slice(0, 18) + '...' : val} 
-            />
-            <RechartsTooltip cursor={{ fill: "#f1f5f9" }} contentStyle={{ borderRadius: "4px", border: "none", padding: "4px" }} />
-            <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} name="Turnos" />
-          </BarChart>
-        </PrintOptimizedContainer>
-      </ChartCard>
+      {/* Top 5: Turnos por Profesional (Solo en ATENCIONES) */}
+      {activeTab === 'AMBULATORIO' && top5Profesionales.length > 0 && (
+        <ChartCard title="Top 5: Turnos por Profesional" isPrinting={isPrinting}>
+          <PrintOptimizedContainer height={220} isPrinting={isPrinting} width={370}>
+            <BarChart
+              data={top5Profesionales}
+              margin={{ top: 5, right: 10, left: -20, bottom: 25 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+              <XAxis 
+                dataKey="name" 
+                interval={0}
+                tick={{ fontSize: 9 }}
+                angle={-15}
+                textAnchor="end"
+                tickFormatter={(val) => {
+                  if (typeof val !== 'string') return String(val);
+                  const parts = val.split(',');
+                  if (parts.length === 2) {
+                    const apellido = parts[0].trim();
+                    const nombre = parts[1].trim();
+                    const inicial = nombre.charAt(0);
+                    const formatted = `${apellido}, ${inicial}.`;
+                    return formatted.length > 14 ? formatted.slice(0, 12) + '..' : formatted;
+                  }
+                  return val.length > 14 ? val.slice(0, 12) + '..' : val;
+                }}
+              />
+              <YAxis tick={{ fontSize: 10 }} />
+              <RechartsTooltip 
+                cursor={{ fill: "#f1f5f9" }} 
+                contentStyle={{ borderRadius: "6px", border: "none", padding: "6px 8px", fontSize: "11px", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                formatter={(value: any, name: any) => [`${value} turnos`, name]}
+                labelFormatter={(label) => `Profesional: ${label}`}
+              />
+              <Legend 
+                verticalAlign="top" 
+                align="right" 
+                height={22} 
+                iconType="circle" 
+                wrapperStyle={{ fontSize: "10px", paddingBottom: "4px" }} 
+              />
+              <Bar 
+                dataKey="conTurno" 
+                stackId="turnos" 
+                fill="#10b981" 
+                name="Con Turno" 
+              />
+              <Bar 
+                dataKey="sinTurno" 
+                stackId="turnos" 
+                fill="#f59e0b" 
+                radius={[4, 4, 0, 0]} 
+                name="Sin Turno" 
+              />
+            </BarChart>
+          </PrintOptimizedContainer>
+        </ChartCard>
+      )}
 
       {/* Top 5: Origen del Paciente (Dpto) (si existe en los datos) */}
       {ambTopPacDpto.length > 0 && (
